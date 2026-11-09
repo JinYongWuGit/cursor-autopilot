@@ -8,7 +8,7 @@ The Cursor Autopilot allows you to remotely control your Cursor agent. It captur
 ## 2. Key Features
 
 -   **Remote Control**: Guide your Cursor AI from external communication channels.
--   **Multi-channel Support**: Currently supports Telegram, Email, and Feishu, with easy extensibility.
+-   **Multi-channel Support**: Supports Microsoft Teams (Graph), Telegram, Email, and Feishu, with easy extensibility.
 -   **Seamless Integration**: Automatically captures Cursor chat summaries and injects replies back into Cursor.
 -   **Robust Message Delivery**: Employs a multi-layer fallback mechanism to ensure messages are sent successfully.
 
@@ -58,7 +58,7 @@ Create a `.autopilot.json` file in your project root. This file controls the ext
 ```json
 {
   "enabled": true,             // Global switch to enable/disable autopilot
-  "adapters": ["telegram"],    // List of enabled adapters (e.g., "telegram", "email", "feishu")
+  "adapters": ["telegram"],    // List of enabled adapters (e.g., "teams", "telegram", "email", "feishu")
 
   "telegram": {
     "token": "YOUR_BOT_TOKEN_HERE",
@@ -79,6 +79,10 @@ Create a `.autopilot.json` file in your project root. This file controls the ext
   }
 }
 ```
+
+#### Microsoft Teams (Graph) Configuration:
+
+See [TEAMS_GRAPH.md](./TEAMS_GRAPH.md) for Entra app registration, channel IDs, sign-in, and troubleshooting.
 
 #### Telegram Specific Configuration:
 

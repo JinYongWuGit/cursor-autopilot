@@ -1,7 +1,7 @@
 <p align="center">
   <img src="./autopilot.png" alt="Cursor Autopilot Logo">
 </p>
-<p align="center">Remote control your Cursor AI coding sessions via Telegram, Gmail, and Feishu.</p>
+<p align="center">Remote control your Cursor AI coding sessions via Microsoft Teams, Telegram, Gmail, and Feishu.</p>
 
 <p align="center">
   <a href="https://marketplace.visualstudio.com/items?itemName=heyzgj.cursor-autopilot">
@@ -33,7 +33,9 @@ To install Cursor Autopilot directly from the Extensions Marketplace:
 | 3 | Click **Install**. |
 | 4 | Open any project folder in Cursor. |
 | 5 | Cursor Autopilot will automatically check and create the required files: `.autopilot.json` and `.cursor/rules/after_each_chat.mdc`. |
-| 6 | Configure your preferred adapter (Telegram, Email, or Feishu) in the `.autopilot.json` file. |
+| 6 | Configure your preferred adapter (Teams, Telegram, Email, or Feishu) in the `.autopilot.json` file. |
+
+For **Microsoft Teams** (Graph channel adapter), see [docs/TEAMS_GRAPH.md](./docs/TEAMS_GRAPH.md).
 
 > [!NOTE]
 > As a Cursor user, if you try to install from the Visual Studio Marketplace website banner you might find yourself in a state where VSCode has SpecStory installed but Cursor doesn't.

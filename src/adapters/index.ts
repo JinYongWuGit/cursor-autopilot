@@ -7,8 +7,10 @@ export interface Adapter {
 import Email from './email';
 import Telegram from './telegram';
 import Feishu from './feishu';
+import Teams from './teams';
 export const adapterMap = {
   email: Email,
   telegram: Telegram,
   feishu: Feishu,
+  teams: Teams,
 } as Record<string,(cfg:any)=>Adapter>; 

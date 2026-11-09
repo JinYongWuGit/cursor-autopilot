@@ -40,6 +40,17 @@ const defaultConfig = {
     appId: 'cli_xxxxxxxxxxxxxxxxx',
     appSecret: 'your_app_secret_here',
     useWebhook: false
+  },
+
+  teams: {
+    tenantId: 'YOUR_TENANT_ID',
+    clientId: 'YOUR_CLIENT_ID',
+    teamId: 'YOUR_TEAM_ID',
+    channelId: 'YOUR_CHANNEL_ID',
+    pollIntervalSeconds: 10,
+    threadMode: 'single-root',
+    authMethod: 'browser',
+    externalTokenCachePath: '%USERPROFILE%/.config/ms365-mcp/.token-cache.json'
   }
 };
 

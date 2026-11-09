@@ -3,7 +3,7 @@
   "publisher": "heyzgj",
   "icon": "autopilot_icon.jpg",
   "displayName": "Cursor Autopilot",
-  "description": "Cursor chat through Telegram/Feishu/Email for remote collaboration",
+  "description": "Cursor chat through Teams/Telegram/Feishu/Email for remote collaboration",
   "version": "0.0.8",
   "engines": {
     "vscode": "^1.99.0"
@@ -44,6 +44,14 @@
       {
         "command": "autopilot.test",
         "title": "Test Autopilot Injection"
+      },
+      {
+        "command": "autopilot.teams.signIn",
+        "title": "Cursor Autopilot: Teams Sign In"
+      },
+      {
+        "command": "autopilot.teams.signOut",
+        "title": "Cursor Autopilot: Teams Sign Out"
       }
     ],
     "configuration": {
@@ -85,6 +93,22 @@
         "autopilot.telegram.chatId": {
           "type": "string",
           "description": "Telegram chat ID"
+        },
+        "autopilot.teams.tenantId": {
+          "type": "string",
+          "description": "Microsoft Entra tenant ID (Teams adapter)"
+        },
+        "autopilot.teams.clientId": {
+          "type": "string",
+          "description": "Entra app (client) ID for Teams Graph adapter"
+        },
+        "autopilot.teams.teamId": {
+          "type": "string",
+          "description": "Target Microsoft Teams team ID"
+        },
+        "autopilot.teams.channelId": {
+          "type": "string",
+          "description": "Target Teams channel ID"
         }
       }
     }
@@ -92,6 +116,7 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
+    "postcompile": "node scripts/copy-winSubmit.js",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
@@ -104,6 +129,7 @@
     "express": "^5.1.0",
     "imap": "^0.8.19",
     "mailparser": "^3.7.4",
+    "@azure/msal-node": "^2.16.2",
     "node-telegram-bot-api": "^0.66.0",
     "nodemailer": "^6.9.0",
     "socks-proxy-agent": "^8.0.5"

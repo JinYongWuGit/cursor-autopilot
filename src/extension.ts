@@ -1,19 +1,33 @@
 import * as vscode from 'vscode';
-import { exec } from 'child_process';
+import { exec, execFile } from 'child_process';
+import fs from 'fs';
+import path from 'path';
 import { load } from './core/store';
 import { sub } from './core/dispatcher';
 import { watch } from './core/watcher';
 import { adapterMap, Adapter } from './adapters';
 import { sendToChat } from './core/inject';
+import { setTeamsExtensionContext } from './teams/context';
+import { signInTeams, signOutTeams } from './teams/auth';
 
 const OPEN_COMMANDS   = ['composer.startComposerPrompt'];
-const FOCUS_COMMANDS  = ['aichat.newfollowupaction'];
-const SUBMIT_COMMANDS = ['composer.submitComposerPrompt','aichat.submitFollowupAction','composer.sendPrompt','cursor.chat.send'];
+const FOCUS_COMMANDS  = ['aichat.newfollowupaction', 'aichat.focus', 'composer.focusComposer'];
+const CHAT_PANEL_FOCUS = ['aichat.focus', 'composer.focusComposer', 'workbench.panel.chat.view.copilot.focus'];
+const SUBMIT_COMMANDS = [
+  'composer.submitComposerPrompt',
+  'aichat.submitFollowupAction',
+  'composer.sendPrompt',
+  'cursor.chat.send',
+  'workbench.action.chat.submit',
+  'aichat.submitChat',
+  'cursor.chat.submit',
+];
 const SEND_KEYBIND    = 'cursor.sendKeyBinding';
 
 export function activate(ctx: vscode.ExtensionContext) {
   console.log('[Autopilot] Extension activation started');
-  
+  setTeamsExtensionContext(ctx);
+
   try {
     // Register the cursorInject.send command with robust injection logic
     const cursorInjectDisposable = vscode.commands.registerCommand('cursorInject.send', async (text?: string) => {
@@ -47,6 +61,18 @@ export function activate(ctx: vscode.ExtensionContext) {
     ctx.subscriptions.push(testDisposable);
     console.log('[Autopilot] autopilot.test command registered successfully');
 
+    const teamsSignInDisposable = vscode.commands.registerCommand('autopilot.teams.signIn', async () => {
+      const store = load();
+      await signInTeams(store.teams ?? {});
+    });
+    ctx.subscriptions.push(teamsSignInDisposable);
+
+    const teamsSignOutDisposable = vscode.commands.registerCommand('autopilot.teams.signOut', async () => {
+      const store = load();
+      await signOutTeams(store.teams ?? {});
+    });
+    ctx.subscriptions.push(teamsSignOutDisposable);
+
     // Load configuration (this will auto-create .autopilot.json if it doesn't exist)
     const store = load();
     console.log('[Autopilot] Configuration loaded:', JSON.stringify(store, null, 2));
@@ -64,6 +90,18 @@ export function activate(ctx: vscode.ExtensionContext) {
       }
       if (name === 'feishu') {
         return !config?.appId || config.appId === 'cli_xxxxxxxxxxxxxxxxx';
+      }
+      if (name === 'teams') {
+        return (
+          !config?.tenantId ||
+          config.tenantId === 'YOUR_TENANT_ID' ||
+          !config?.clientId ||
+          config.clientId === 'YOUR_CLIENT_ID' ||
+          !config?.teamId ||
+          config.teamId === 'YOUR_TEAM_ID' ||
+          !config?.channelId ||
+          config.channelId === 'YOUR_CHANNEL_ID'
+        );
       }
       return false;
     });
@@ -91,6 +129,9 @@ export function activate(ctx: vscode.ExtensionContext) {
       try { 
         const adapter = factory(store[name]||{});
         actives.push(adapter);
+        if (adapter.dispose) {
+          ctx.subscriptions.push({ dispose: () => adapter.dispose?.() });
+        }
         console.log(`[Autopilot] Adapter ${name} initialized successfully`);
       }
       catch(err){ 
@@ -101,7 +142,7 @@ export function activate(ctx: vscode.ExtensionContext) {
 
     actives.forEach(a => a.onReply(r => {
       const resp = r.trim()==='1' ? 'Continue ✅' : r.trim()==='2' ? 'Stop ❌' : r;
-      sendToChat(resp);
+      void sendToChat(resp).catch((e) => console.error('[Autopilot] Inject failed:', e));
     }));
 
     sub('summary', s => {
@@ -169,7 +210,15 @@ async function injectTextToChat(text: string) {
   } else {
     await vscode.commands.executeCommand('editor.action.clipboardPasteAction');
   }
-  await delay(100);
+  await delay(250);
+
+  for (const id of CHAT_PANEL_FOCUS) {
+    if (cmds.includes(id)) {
+      await vscode.commands.executeCommand(id);
+      await delay(120);
+      break;
+    }
+  }
 
   // 4️⃣ Submit prompt — try in‑IDE routes first
   console.log('[cursorInject] Submitting...');
@@ -193,6 +242,10 @@ async function injectTextToChat(text: string) {
 
   if (!submitted) {
     console.log('[cursorInject] Fallback → OS‑level Cmd/Ctrl+Enter');
+    await osLevelSend();
+  } else if (process.platform === 'win32') {
+    // Cursor on Windows often accepts paste but ignores programmatic submit; nudge with Ctrl+Enter.
+    await delay(150);
     await osLevelSend();
   }
 }
@@ -218,6 +271,16 @@ async function osLevelSend() {
     await delay(200);
     await execPromise(`xdotool key ctrl+Return`);
     console.log('[cursorInject] Sent Ctrl+Enter via xdotool');
+  } else if (process.platform === 'win32') {
+  try {
+      await sendWindowsChatSubmit();
+      console.log('[cursorInject] Sent chat submit keys via winSubmit.ps1');
+    } catch (err) {
+      console.error('[cursorInject] Windows SendKeys failed:', err);
+      vscode.window.showWarningMessage(
+        'Autopilot pasted your Teams reply into chat but could not submit automatically. Press Ctrl+Enter to send.'
+      );
+    }
   } else {
     vscode.window.showWarningMessage('OS‑level fallback not implemented for this platform. Please press Enter manually.');
   }
@@ -227,6 +290,28 @@ function execPromise(cmd: string) {
   return new Promise<void>((resolve, reject) => {
     exec(cmd, (err) => (err ? reject(err) : resolve()));
   });
+}
+
+function execFilePromise(file: string, args: string[]) {
+  return new Promise<void>((resolve, reject) => {
+    execFile(file, args, { windowsHide: true }, (err) => (err ? reject(err) : resolve()));
+  });
+}
+
+async function sendWindowsChatSubmit(): Promise<void> {
+  const scriptInOut = path.join(__dirname, 'core', 'winSubmit.ps1');
+  const scriptInSrc = path.join(__dirname, '..', 'src', 'core', 'winSubmit.ps1');
+  const scriptPath = fs.existsSync(scriptInOut) ? scriptInOut : scriptInSrc;
+  if (!fs.existsSync(scriptPath)) {
+    throw new Error(`winSubmit.ps1 not found (tried ${scriptInOut})`);
+  }
+  await execFilePromise('powershell.exe', [
+    '-NoProfile',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-File',
+    scriptPath,
+  ]);
 }
 
 const isMac = () => process.platform === 'darwin';
